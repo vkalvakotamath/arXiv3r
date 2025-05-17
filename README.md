@@ -1,5 +1,5 @@
 # arXiv3r
-Discord bot for arXiv linking. More features will hopefully be added soon. Although in the words of the famous me, "just search for the identifier you bozo".
+Add to your server using [the Discord app link](https://discord.com/oauth2/authorize?client_id=1373294136920113183). More features will hopefully be added soon. Although in the words of the famous me, "just search for the identifier you bozo".
 
 # What's new in v2.
 
