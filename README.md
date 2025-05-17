@@ -1,5 +1,5 @@
 # arXiv3r
-Discord bot for arXiv linking.
+Discord bot for arXiv linking. More features will hopefully be added soon. Although in the words of the famous me, "just search for the identifier you bozo".
 
 # Privacy Policy
 
