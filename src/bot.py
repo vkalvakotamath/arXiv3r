@@ -16,7 +16,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
 # Regex stuffs
-OLD_STYLE_PATTERN = r'\[([\w-]+\/\d{7})\]'  # [cat/nnnn] for the older identifiers
+OLD_STYLE_PATTERN = r'\[([\w-]+\/\d{7})\]'  # [cat/nnnn]
 NEW_STYLE_PATTERN = r'\[(\d{4}\.\d{4,5}(?:v\d+)?)\]' 
 
 async def fetch_paper_details(arxiv_id):
@@ -27,6 +27,7 @@ async def fetch_paper_details(arxiv_id):
         try:
             async with session.get(url) as response:
                 if response.status == 200:
+                    # Parse XML response
                     xml_data = await response.text()
                     root = ET.fromstring(xml_data)
 
@@ -34,18 +35,23 @@ async def fetch_paper_details(arxiv_id):
                         'atom': 'http://www.w3.org/2005/Atom',
                         'arxiv': 'http://arxiv.org/schemas/atom'
                     }
+                    
+                    # Extract paper details
                     entry = root.find('.//atom:entry', namespaces)
                     if entry is None:
                         return None
 
+
+
+
                     title_elem = entry.find('./atom:title', namespaces)
                     title = title_elem.text.replace('\n', ' ').strip() if title_elem is not None else "No title available"
                     author_elems = entry.findall('./atom:author/atom:name', namespaces)
-                    authors = ', '.join([author.text for author in author_elems]) if author_elems else "Unknown authors"
+                    authors = ', '.join([author.text for author in author_elems]) if author_elems else "Did you search for a real paper?"
                     
 
                     summary_elem = entry.find('./atom:summary', namespaces)
-                    abstract = summary_elem.text.replace('\n', ' ').strip() if summary_elem is not None else "No abstract available"
+                    abstract = summary_elem.text.replace('\n', ' ').strip() if summary_elem is not None else "Don't spam the Discord channel like an idiot if not"
                     
 
                     link_elem = entry.find('./atom:link[@title="pdf"]', namespaces)
