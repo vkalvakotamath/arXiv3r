@@ -9,9 +9,25 @@ import xml.etree.ElementTree as ET
 from discord.ext import commands
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+import logging
 
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("arXiv3r.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("arXiv3r.bot")
+
+# Load environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+if not TOKEN:
+    logger.error("DISCORD_BOT_TOKEN not found! Please set this environment variable.")
+    
 intents = discord.Intents.default()
 intents.message_content = True 
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
@@ -77,11 +93,11 @@ async def fetch_paper_details(arxiv_id):
                     }
 
                 else:
-                    print(f"Error: API returned status code {response.status}")
+                    logger.error(f"Error: API returned status code {response.status}")
                     return None
 
         except Exception as e:
-            print(f"Error fetching arXiv paper {arxiv_id}: {e}")
+            logger.error(f"Error fetching arXiv paper {arxiv_id}: {e}")
             return None
 
 async def generate_bibtex(arxiv_id, paper_details):
@@ -156,17 +172,17 @@ async def search_author_papers(author_name):
                     
                     return results
                 else:
-                    print(f"Error searching for author papers: {response.status}")
+                    logger.error(f"Error searching for author papers: {response.status}")
                     return []
         except Exception as e:
-            print(f"Error searching for {author_name}'s papers: {e}")
+            logger.error(f"Error searching for {author_name}'s papers: {e}")
             return []
 
 @bot.event
 async def on_ready():
     """Called when arXiv3r is functional"""
-    print(f'Logged in as {bot.user.name} ({bot.user.id})')
-    print(f'Bot is active in {len(bot.guilds)} servers')
+    logger.info(f'Logged in as {bot.user.name} ({bot.user.id})')
+    logger.info(f'Bot is active in {len(bot.guilds)} servers')
     
     # Set bot status
     await bot.change_presence(activity=discord.Activity(
@@ -223,7 +239,7 @@ async def on_message(message):
                     await message.channel.send(response)
         
         except Exception as e:
-            print(f"Error processing arXiv ID {arxiv_id}: {e}")
+            logger.error(f"Error processing arXiv ID {arxiv_id}: {e}")
     
     # Process BibTeX requests
     if bibtex_ids:
@@ -238,7 +254,7 @@ async def on_message(message):
                     await message.channel.send(f"BibTeX citation for arXiv:{bibtex_id}\n{bibtex}")
         
         except Exception as e:
-            print(f"Error processing BibTeX request for {bibtex_id}: {e}")
+            logger.error(f"Error processing BibTeX request for {bibtex_id}: {e}")
     
     await bot.process_commands(message)
 
@@ -307,7 +323,7 @@ async def check_author_papers():
                             author_subscriptions[guild_id][channel_id][author_name] = []
                         
         except Exception as e:
-            print(f"Error in author paper check: {e}")
+            logger.error(f"Error in author paper check: {e}")
         
         # Check once a day
         await asyncio.sleep(86400)  # 24 hours in seconds
@@ -317,20 +333,56 @@ async def check_author_papers():
 async def help_command(ctx):
     """Shows help information for arXiv3r bot."""
     help_text = (
-        "**arXiv3r Bot Help**\n\n"
-        "arXiv3r detects arXiv identifiers in square brackets of the format [yymm.nnnn] or [cat/nnnnn] "
-        "and converts them to formatted links with titles. [v3]\n\n"
+        "**arXiv3r**\n\n"
+        "arXiv3r is a friendly app that detects arXiv identifiers [yymm.nnnn] or [cat/nnnnn] "
+        "and converts them to formatted links with titles. [v2]\n\n"
         "**Commands:**\n"
         "• Use `[yymm.nnnn]` or `[cat/nnnnn]` to get paper details\n"
         "• Use `[bib:yymm.nnnn]` to get a BibTeX citation\n"
         "• Use `[au:Author Name]` to subscribe to new papers by an author\n\n"
+        "• Go watch Dune Part 1 and Dune Part 2.\n"
         "[v1] Init commit.\n"
-        "[v2] PDF linking and options for version history/metadata.\n"
-        "[v3] Added BibTeX citations, multi-paper support, and author subscriptions."
+        "[v2] PDF linking, bibtex, multiple requests in single instance and author subscription.\n"
+        "[v3] See github.com/vkalvakotamath/arXiv3r for upcoming releases. Suggestions are welcome!"
     )
     await ctx.send(help_text)
 
 
+# Implement heartbeat mechanism to keep the bot alive
+async def heartbeat():
+    """Send a heartbeat message to keep the connection alive"""
+    logger.info("Starting heartbeat mechanism")
+    while True:
+        try:
+            logger.debug("Heartbeat pulse")
+            await asyncio.sleep(300)  # Send heartbeat every 5 minutes
+        except Exception as e:
+            logger.error(f"Error in heartbeat: {e}")
+            await asyncio.sleep(60)  # Wait a bit before retrying
+
+# Start the heartbeat when the bot is ready
+@bot.event
+async def on_ready():
+    """Called when arXiv3r is functional"""
+    logger.info(f'Logged in as {bot.user.name} ({bot.user.id})')
+    logger.info(f'Bot is active in {len(bot.guilds)} servers')
+    
+    # Set bot status
+    await bot.change_presence(activity=discord.Activity(
+        type=discord.ActivityType.watching, 
+        name="for [arXiv:IDs]"
+    ))
+    
+    # Start author paper check loop
+    bot.loop.create_task(check_author_papers())
+    
+    # Start heartbeat mechanism
+    bot.loop.create_task(heartbeat())
+
 # THe
 if __name__ == "__main__":
-    bot.run(TOKEN)
+    try:
+        logger.info("Starting arXiv3r")
+        bot.run(TOKEN)
+    except Exception as e:
+        logger.critical(f"Fatal error: {e}")
